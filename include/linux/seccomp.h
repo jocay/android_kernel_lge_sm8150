@@ -24,6 +24,11 @@ struct seccomp_filter;
  *
  *          @filter must only be accessed from the context of current as there
  *          is no read locking.
+ *
+ * Do not add fields: this struct is embedded in task_struct. KernelSU's
+ * Kbuild inserts "atomic_t filter_count;" here unless it finds that text in
+ * this file; it only uses the field on v5.9+, so this comment is what keeps
+ * task_struct, and with it the exported-symbol CRCs, as in the official build.
  */
 struct seccomp {
 	int mode;

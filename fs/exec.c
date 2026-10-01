@@ -1944,6 +1944,19 @@ int do_execveat(int fd, struct filename *filename,
 	return do_execveat_common(fd, filename, argv, envp, flags);
 }
 
+#ifdef CONFIG_KSU
+extern bool ksu_execveat_hook __read_mostly;
+extern int ksu_handle_execve_ksud(const char __user *filename_user,
+				  const char __user *const __user *__argv);
+extern long ksu_handle_execve_sucompat(const char __user **filename_user,
+				       int orig_nr, const struct pt_regs *regs);
+extern long ksu_handle_execveat_sucompat_user(const char __user **filename_user,
+					      int orig_nr,
+					      const struct pt_regs *regs);
+extern int ksu_handle_execveat_sucompat(int *fd, struct filename **filename_ptr,
+					void *argv, void *envp, int *flags);
+#endif
+
 #ifdef CONFIG_COMPAT
 static int compat_do_execve(struct filename *filename,
 	const compat_uptr_t __user *__argv,
@@ -1957,6 +1970,10 @@ static int compat_do_execve(struct filename *filename,
 		.is_compat = true,
 		.ptr.compat = __envp,
 	};
+#ifdef CONFIG_KSU
+	/* 32-bit callers: argv is a compat array, so only rewrite the path */
+	ksu_handle_execveat_sucompat(NULL, &filename, NULL, NULL, NULL);
+#endif
 	return do_execveat_common(AT_FDCWD, filename, argv, envp, 0);
 }
 
@@ -2011,6 +2028,11 @@ SYSCALL_DEFINE3(execve,
 		const char __user *const __user *, argv,
 		const char __user *const __user *, envp)
 {
+#ifdef CONFIG_KSU
+	if (unlikely(ksu_execveat_hook))
+		ksu_handle_execve_ksud(filename, argv);
+	ksu_handle_execve_sucompat(&filename, __NR_execve, current_pt_regs());
+#endif
 	return do_execve(getname(filename), argv, envp);
 }
 
@@ -2021,6 +2043,16 @@ SYSCALL_DEFINE5(execveat,
 		int, flags)
 {
 	int lookup_flags = (flags & AT_EMPTY_PATH) ? LOOKUP_EMPTY : 0;
+
+#ifdef CONFIG_KSU
+	/* newer bionic implements execve() as execveat(AT_FDCWD, ..., 0) */
+	if (fd == AT_FDCWD && !flags) {
+		if (unlikely(ksu_execveat_hook))
+			ksu_handle_execve_ksud(filename, argv);
+		ksu_handle_execveat_sucompat_user(&filename, __NR_execveat,
+						  current_pt_regs());
+	}
+#endif
 
 	return do_execveat(fd,
 			   getname_flags(filename, lookup_flags, NULL),
