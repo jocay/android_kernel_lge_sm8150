@@ -1,0 +1,6 @@
+id=alphaplus_server
+name=G8 Server Tuning
+version=v1.0
+versionCode=1
+author=jocay
+description=Runs the LG G8 as an always-on server and side router: no skin-temperature throttling, performance CPU policy, no doze, charge limit, low-latency network, forwarding, open adb on TCP 5555. Tunables in config.sh.
