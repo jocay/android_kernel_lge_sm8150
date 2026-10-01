@@ -3792,6 +3792,18 @@ static int cgroup_add_file(struct cgroup_subsys_state *css, struct cgroup *cgrp,
 		spin_unlock_irq(&cgroup_file_kn_lock);
 	}
 
+	/*
+	 * Android mounts cpuset with "noprefix", so its files are named
+	 * "cpus", "mems", ... Container runtimes (LXC, Droidspaces, systemd)
+	 * look for "cpuset.cpus" etc.; give them a link under that name.
+	 */
+	if (cft->ss && (cgrp->root->flags & CGRP_ROOT_NOPREFIX) &&
+	    !(cft->flags & CFTYPE_NO_PREFIX)) {
+		snprintf(name, CGROUP_FILE_NAME_MAX, "%s.%s", cft->ss->name,
+			 cft->name);
+		kernfs_create_link(cgrp->kn, name, kn);
+	}
+
 	return 0;
 }
 
